@@ -1,0 +1,19 @@
+#!/bin/sh
+
+VERSION=31
+
+url=https://dl.fedoraproject.org/pub/fedora/linux/releases/$VERSION/Everything/x86_64/os/
+
+mkdir -p /boot/grub
+
+curl $url/isolinux/vmlinuz -o /boot/vmlinuz
+curl $url/isolinux/initrd.img -o /boot/initrd.img
+
+cat >/boot/grub/menu.lst <<EOF
+timeout 5
+title Kickstart FDE Fedora $VERSION
+root (hd0)
+kernel /boot/vmlinuz
+initrd /boot/initrd.img
+append devfs=nomount text inst.repo=https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/ inst.ks=https://raw.githubusercontent.com/brad2014/linode-fde/master/fde.ks
+EOF
