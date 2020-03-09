@@ -1,0 +1,118 @@
+#!/bin/bash
+#
+#  Start with linode does not exist
+#
+
+set -e
+
+function liget {
+  curl -sS -H "Authorization: Bearer $LI_AUTH_TOKEN" 'https://api.linode.com/v4/linode/instances/'$1
+}
+function lidelete {
+  curl -sS -X DELETE -H "Authorization: Bearer $LI_AUTH_TOKEN" 'https://api.linode.com/v4/linode/instances/'$1
+}
+function lipost {
+  curl -sS \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $LI_AUTH_TOKEN" \
+    -X POST -d "$2" \
+    'https://api.linode.com/v4/linode/instances/'$1
+}
+function liwait {
+  local file=$1
+  local result=$2
+  local prefix=$3
+  local id=$(jq -r .id < $file)
+  local status=$(jq -r .status < $file)
+  echo "Waiting for $prefix/$id to go from $status to $result..."
+  while [ "$status" != "$result" ] ; do 
+    sleep 2
+    liget $prefix/$id > $file
+    status=$(jq -r .status < $file)
+    echo "status is $status"
+  done
+}
+
+label=brmail.wbr.tech
+
+id=$(liget | jq -r '.data|map({(.label):.})|add|.["'$label'"]?.id?')
+
+echo $id
+if [ "$id" = 'null' ]; then
+  echo "Linode $label does not exist"
+else
+  echo "Linode $label exists with id $id"
+  read -p "Destroying linode. ok? [n/y] " confirm
+  if [ "$confirm" != 'y' ]; then
+    echo 'Aborted'
+    exit 1
+  fi
+  lidelete $id | jq
+fi
+
+echo "Creating Linode $label"
+lipost '' '{
+    "watchdog_enabled": false,
+    "region": "us-west",
+    "type": "g6-nanode-1",
+    "label": "'$label'"
+  }' > linode.spec
+
+id=$(jq -r .id < linode.spec)
+echo "New Linode $label is $id"
+
+liwait linode.spec offline
+
+echo "Create install disk for linode $id"
+lipost "$id/disks" '{ "label": "install", "size": 1000, "filesystem": "raw" }' > disk.install.spec
+liwait disk.install.spec ready $id/disks
+
+echo "Create boot disk for linode $id"
+lipost "$id/disks" '{ "label": "boot", "size": 24600, "filesystem": "raw" }' > disk.boot.spec
+liwait disk.boot.spec ready $id/disks
+
+install_disk_id=$(jq -r .id < disk.install.spec)
+boot_disk_id=$(jq -r .id < disk.boot.spec)
+
+lipost "$id/configs" '{
+    "label": "install",
+    "kernel": "linode/direct-disk",
+    "devices": {
+      "sda": { "disk_id": '$install_disk_id' },
+      "sdb": { "disk_id": '$boot_disk_id' }
+    },
+    "helpers": {
+      "updatedb_disabled": false,
+      "distro": false,
+      "modules_dep": false,
+      "network": false,
+      "devtmpfs_automount": false
+    },
+    "root_device": "/dev/sdb"
+  }' > config.install.spec
+
+lipost "$id/configs" '{
+    "label": "run",
+    "kernel": "linode/direct-disk",
+    "devices": {
+      "sda": { "disk_id": '$boot_disk_id' }
+    },
+    "helpers": {
+      "updatedb_disabled": false,
+      "distro": false,
+      "modules_dep": false,
+      "network": false,
+      "devtmpfs_automount": false
+    },
+    "root_device": "/dev/sda"
+  }' > config.run.spec
+
+
+echo Booting into rescue mode
+lipost $id/rescue '{
+    "devices": {
+      "sda": { "disk_id": '$install_disk_id' }
+    }
+  }' > rescue.spec
+
+liwait linode.spec running
