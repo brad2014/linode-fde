@@ -64,11 +64,11 @@ echo "New Linode $label is $id"
 liwait linode.spec offline
 
 echo "Create install disk for linode $id"
-lipost "$id/disks" '{ "label": "install", "size": 1000, "filesystem": "raw" }' > disk.install.spec
+lipost "$id/disks" '{ "label": "install", "size": 100, "filesystem": "ext4" }' > disk.install.spec
 liwait disk.install.spec ready $id/disks
 
 echo "Create boot disk for linode $id"
-lipost "$id/disks" '{ "label": "boot", "size": 24600, "filesystem": "raw" }' > disk.boot.spec
+lipost "$id/disks" '{ "label": "boot", "size": 25500, "filesystem": "raw" }' > disk.boot.spec
 liwait disk.boot.spec ready $id/disks
 
 install_disk_id=$(jq -r .id < disk.install.spec)
