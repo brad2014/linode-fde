@@ -5,12 +5,20 @@
 
 set -e
 
+. config.sh
+
+#
+# API helpers (since I'm too lazy to install linode-cli)
+#
+
 function liget {
   curl -sS -H "Authorization: Bearer $LI_AUTH_TOKEN" 'https://api.linode.com/v4/linode/instances/'$1
 }
+
 function lidelete {
   curl -sS -X DELETE -H "Authorization: Bearer $LI_AUTH_TOKEN" 'https://api.linode.com/v4/linode/instances/'$1
 }
+
 function lipost {
   curl -sS \
     -H "Content-Type: application/json" \
@@ -18,30 +26,37 @@ function lipost {
     -X POST -d "$2" \
     'https://api.linode.com/v4/linode/instances/'$1
 }
+
+function lirdns {
+  curl -sS \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $LI_AUTH_TOKEN" \
+    -X PUT -d '{"rdns": "'$2'"}' \
+    https://api.linode.com/v4/networking/ips/$1
+}
+
 function liwait {
   local file=$1
   local result=$2
   local prefix=$3
   local id=$(jq -r .id < $file)
   local status=$(jq -r .status < $file)
-  echo "Waiting for $prefix/$id to go from $status to $result..."
+  echo "Waiting for $prefix$id to go from $status to $result..."
   while [ "$status" != "$result" ] ; do 
     sleep 2
-    liget $prefix/$id > $file
+    liget $prefix$id > $file
     status=$(jq -r .status < $file)
     echo "status is $status"
   done
 }
 
-label=brmail.wbr.tech
-
-id=$(liget | jq -r '.data|map({(.label):.})|add|.["'$label'"]?.id?')
+id=$(liget | jq -r '.data|map({(.label):.})|add|.["'$LI_LABEL'"]?.id?')
 
 echo $id
 if [ "$id" = 'null' ]; then
-  echo "Linode $label does not exist"
+  echo "Linode $LI_LABEL does not yet exist."
 else
-  echo "Linode $label exists with id $id"
+  echo "Linode $LI_LABEL exists with id $id"
   read -p "Destroying linode. ok? [n/y] " confirm
   if [ "$confirm" != 'y' ]; then
     echo 'Aborted'
@@ -50,36 +65,45 @@ else
   lidelete $id | jq
 fi
 
-echo "Creating Linode $label"
+echo "Creating Linode $LI_LABEL"
 lipost '' '{
     "watchdog_enabled": false,
-    "region": "us-west",
-    "type": "g6-nanode-1",
-    "label": "'$label'"
-  }' > linode.spec
+    "region": "'$LI_REGION'",
+    "type": "'$LI_TYPE'",
+    "label": "'$LI_LABEL'"
+  }' > spec/linode.spec
 
-id=$(jq -r .id < linode.spec)
-echo "New Linode $label is $id"
+liwait spec/linode.spec offline
 
-liwait linode.spec offline
+id=$(jq -r .id < spec/linode.spec)
+ip=$(jq -r .ipv4[0] < spec/linode.spec)
+echo "New Linode $LI_LABEL is $id at $ip"
 
-echo "Create install disk for linode $id"
-lipost "$id/disks" '{ "label": "install", "size": 100, "filesystem": "ext4" }' > disk.install.spec
-liwait disk.install.spec ready $id/disks
+# lirdns $ip $LI_LABEL  # doesn't work yet
 
-echo "Create boot disk for linode $id"
-lipost "$id/disks" '{ "label": "boot", "size": 25500, "filesystem": "raw" }' > disk.boot.spec
-liwait disk.boot.spec ready $id/disks
 
-install_disk_id=$(jq -r .id < disk.install.spec)
-boot_disk_id=$(jq -r .id < disk.boot.spec)
+max_disk_size=$(jq -r .specs.disk < spec/linode.spec)
+install_disk_size=1000 # MB
+os_disk_size=$(($max_disk_size - $install_disk_size))
 
+echo "Create install disk ($install_disk_size Mb) for linode $id"
+lipost "$id/disks" '{ "label": "install", "size": '$install_disk_size', "filesystem": "raw" }' > spec/disk.install.spec
+liwait spec/disk.install.spec ready $id/disks/
+
+echo "Create OS disk ($os_disk_size Mb) for linode $id"
+lipost "$id/disks" '{ "label": "OS", "size": '$os_disk_size', "filesystem": "raw" }' > spec/disk.os.spec
+liwait spec/disk.os.spec ready $id/disks/
+
+install_disk_id=$(jq -r .id < spec/disk.install.spec)
+os_disk_id=$(jq -r .id < spec/disk.os.spec)
+
+echo "Create install configuration."
 lipost "$id/configs" '{
-    "label": "install",
+    "label": "Install",
     "kernel": "linode/direct-disk",
     "devices": {
-      "sda": { "disk_id": '$install_disk_id' },
-      "sdb": { "disk_id": '$boot_disk_id' }
+      "sda": { "disk_id": '$os_disk_id' },
+      "sdb": { "disk_id": '$install_disk_id' }
     },
     "helpers": {
       "updatedb_disabled": false,
@@ -89,13 +113,14 @@ lipost "$id/configs" '{
       "devtmpfs_automount": false
     },
     "root_device": "/dev/sdb"
-  }' > config.install.spec
+  }' > spec/config.install.spec
 
+echo "Create run configuration."
 lipost "$id/configs" '{
-    "label": "run",
+    "label": "Run OS",
     "kernel": "linode/direct-disk",
     "devices": {
-      "sda": { "disk_id": '$boot_disk_id' }
+      "sda": { "disk_id": '$os_disk_id' }
     },
     "helpers": {
       "updatedb_disabled": false,
@@ -105,14 +130,13 @@ lipost "$id/configs" '{
       "devtmpfs_automount": false
     },
     "root_device": "/dev/sda"
-  }' > config.run.spec
+  }' > spec/config.run.spec
 
 
-echo Booting into rescue mode
+echo Booting into rescue mode, to initialize install disk.
 lipost $id/rescue '{
     "devices": {
       "sda": { "disk_id": '$install_disk_id' }
     }
-  }' > rescue.spec
-
-liwait linode.spec running
+  }' > spec/rescue.spec
+liwait spec/linode.spec running

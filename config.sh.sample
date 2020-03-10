@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Configuration file for create_encrypted_linode
+
+# get token off MacOS keychain.  Must have R/W scope for LINODE and NETWORKING
+LI_AUTH_TOKEN=$(security find-generic-password -a $USER -s LI_AUTH_TOKEN -w)
+LI_LABEL="myfde.example.com"
+LI_REGION="us-west"
+LI_TYPE="g6-standard-1"

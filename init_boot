@@ -1,19 +1,51 @@
 #!/bin/sh
+set -x
+url=http://mirror.umd.edu/fedora/linux/releases/31/Everything/x86_64/os
+rm -fr bootcd
+mkdir -p bootcd
+lftp -c mirror $url/isolinux bootcd/isolinux
+cat > bootcd/ks.cfg << EOF
+ignoredisk --only-use=sda
+auth --enableshadow --passalgo=sha512
+install
+text
+network --bootproto=dhcp --ipv6=auto --activate
+keyboard --vckeymap=us --xlayouts='us'
+lang en_US.UTF-8
+timezone America/Los_Angeles --isUtc
+firstboot --disable
+skipx
+zerombr
+bootloader --location=mbr --password=changeme
+clearpart --all --initlabel
+autopart --type=lvm --encrypted --passphrase=changeme
+rootpw changeme
+reboot --eject
 
-VERSION=31
+%packages --ignoremissing
+@core
+%end
 
-url=https://dl.fedoraproject.org/pub/fedora/linux/releases/$VERSION/Everything/x86_64/os/
+%addon com_redhat_kdump --disable --reserve-mb='128'
 
-mkdir -p /boot/grub
-
-curl $url/isolinux/vmlinuz -o /boot/vmlinuz
-curl $url/isolinux/initrd.img -o /boot/initrd.img
-
-cat >/boot/grub/menu.lst <<EOF
-timeout 5
-title Kickstart FDE Fedora $VERSION
-root (hd0)
-kernel /boot/vmlinuz
-initrd /boot/initrd.img
-append devfs=nomount text inst.repo=https://dl.fedoraproject.org/pub/fedora/linux/releases/31/Everything/x86_64/os/ inst.ks=https://raw.githubusercontent.com/brad2014/linode-fde/master/fde.ks
+%end
 EOF
+
+cat > bootcd/isolinux/isolinux.cfg << EOF
+default vesamenu.c32
+timeout 5
+display boot.msg
+menu clear
+menu background splash.png
+menu title Fedora 31
+label linux
+  menu label ^Kickstart Fedora 31
+  kernel vmlinuz
+  append initrd=initrd.img inst.ks=hd:LABEL=KS:/ks.cfg inst.repo=$url console=ttyS0,19200n8 net.ifnames=0
+EOF
+
+cd bootcd
+genisoimage -J -R -V "KS" -b isolinux/isolinux.bin -c isolinux/boot.cat --no-emul-boot --boot-load-size 4 --boot-info-table -v -o ../linuxboot.iso .
+isohybrid ../linuxboot.iso
+dd if=../linuxboot.iso of=/dev/sda
+sync; echo 3 > /proc/sys/vm/drop_caches
