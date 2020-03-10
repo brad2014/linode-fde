@@ -83,7 +83,7 @@ echo "New Linode $LI_LABEL is $id at $ip"
 
 
 max_disk_size=$(jq -r .specs.disk < spec/linode.spec)
-install_disk_size=1000 # MB
+install_disk_size=100 # MB
 os_disk_size=$(($max_disk_size - $install_disk_size))
 
 echo "Create install disk ($install_disk_size Mb) for linode $id"
