@@ -5,25 +5,35 @@ rm -fr bootcd
 mkdir -p bootcd
 lftp -c mirror $url/isolinux bootcd/isolinux
 cat > bootcd/ks.cfg << EOF
+
 ignoredisk --only-use=sda
 auth --enableshadow --passalgo=sha512
 install
 text
 network --bootproto=dhcp --ipv6=auto --activate
+network --hostname=vagrant.localdomain
 keyboard --vckeymap=us --xlayouts='us'
 lang en_US.UTF-8
-timezone America/Los_Angeles --isUtc
 firstboot --disable
 skipx
 zerombr
-bootloader --location=mbr --password=changeme
+bootloader --location=mbr --password=vagrant
 clearpart --all --initlabel
-autopart --type=lvm --encrypted --passphrase=changeme
-rootpw changeme
+autopart --type=lvm --encrypted --passphrase=vagrant
+rootpw vagrant
 reboot --eject
 
 %packages --ignoremissing
 @core
+%end
+
+%post
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+umask 077
+mkdir /root/.ssh
+cat << EOF > /root/.ssh/authorized_keys
+ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
+EOF
 %end
 
 %addon com_redhat_kdump --disable --reserve-mb='128'
