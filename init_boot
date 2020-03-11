@@ -4,7 +4,7 @@ url=http://mirror.umd.edu/fedora/linux/releases/31/Everything/x86_64/os
 rm -fr bootcd
 mkdir -p bootcd
 lftp -c mirror $url/isolinux bootcd/isolinux
-cat > bootcd/ks.cfg << EOF
+cat > bootcd/ks.cfg << EOF1
 
 ignoredisk --only-use=sda
 auth --enableshadow --passalgo=sha512
@@ -21,9 +21,9 @@ bootloader --location=mbr --password=vagrant
 clearpart --all --initlabel
 autopart --type=lvm --encrypted --passphrase=vagrant
 rootpw vagrant
-reboot --eject
+reboot
 
-%packages --ignoremissing
+%packages
 @core
 %end
 
@@ -34,14 +34,15 @@ mkdir /root/.ssh
 cat << EOF > /root/.ssh/authorized_keys
 ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key
 EOF
+
 %end
 
 %addon com_redhat_kdump --disable --reserve-mb='128'
 
 %end
-EOF
+EOF1
 
-cat > bootcd/isolinux/isolinux.cfg << EOF
+cat > bootcd/isolinux/isolinux.cfg << EOF2
 default vesamenu.c32
 timeout 5
 display boot.msg
@@ -52,7 +53,7 @@ label linux
   menu label ^Kickstart Fedora 31
   kernel vmlinuz
   append initrd=initrd.img inst.ks=hd:LABEL=KS:/ks.cfg inst.repo=$url console=ttyS0,19200n8 net.ifnames=0
-EOF
+EOF2
 
 cd bootcd
 genisoimage -J -R -V "KS" -b isolinux/isolinux.bin -c isolinux/boot.cat --no-emul-boot --boot-load-size 4 --boot-info-table -v -o ../linuxboot.iso .
