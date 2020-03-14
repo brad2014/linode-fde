@@ -1,4 +1,7 @@
 #!/bin/sh
+
+nodename=${1:-vagrant.localdomain}
+
 set -x
 url=http://mirror.umd.edu/fedora/linux/releases/31/Everything/x86_64/os
 rm -fr bootcd
@@ -11,7 +14,7 @@ auth --enableshadow --passalgo=sha512
 install
 text
 network --bootproto=dhcp --ipv6=auto --activate
-network --hostname=vagrant.localdomain
+network --hostname=$nodename
 keyboard --vckeymap=us --xlayouts='us'
 lang en_US.UTF-8
 firstboot --disable
@@ -21,10 +24,12 @@ bootloader --location=mbr --password=vagrant
 clearpart --all --initlabel
 autopart --type=lvm --encrypted --passphrase=vagrant
 rootpw vagrant
-reboot
+halt
 
 %packages
 @core
+-@hardware-support
+rsync
 %end
 
 %post

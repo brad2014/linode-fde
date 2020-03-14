@@ -2,8 +2,9 @@
 
 # Configuration file for create_encrypted_linode
 
-# get token off MacOS keychain.  Must have R/W scope for LINODE and NETWORKING
+# I get the token off my MacOS keychain.  Must have R/W scope for LINODE and NETWORKING
+# You could just set it here to the token value.
 LI_AUTH_TOKEN=$(security find-generic-password -a $USER -s LI_AUTH_TOKEN -w)
-LI_LABEL="myfde.example.com"
+LI_LABEL="myfde.example.com" # host name and linode instance label
 LI_REGION="us-west"
-LI_TYPE="g6-standard-1"
+LI_TYPE="g6-standard-1"  # min 2Gb RAM required to kickstart Fedora 31

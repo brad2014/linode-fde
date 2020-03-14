@@ -1,0 +1,23 @@
+#!/bin/bash
+
+config=$1
+if [ ! -r spec/linode.spec ] ; then
+  echo ERROR: linode instance not yet created
+  exit 1
+fi
+if [ ! -r spec/config.$config.spec ] ; then
+  echo ERROR: unknown configuration $config. Use install or run.
+  exit 1
+fi
+
+. functions.sh
+
+label=$(jq -r .label spec/linode.spec)
+id=$(jq -r .id spec/linode.spec)
+config_id=$(jq -r .id spec/config.$config.spec)
+
+echo "Shutting down $label ($id)"
+lipost $id/shutdown '{}' > spec/shutdown.$config.spec
+liwait spec/linode.spec offline
+echo "Rebooting $label ($id) into config $config ($config_id)."
+lipost $id/boot '{ "config_id": '$config_id' }' > spec/boot.$config.spec
