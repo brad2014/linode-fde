@@ -21,3 +21,4 @@ lipost $id/shutdown '{}' > spec/shutdown.$config.spec
 liwait spec/linode.spec offline
 echo "Rebooting $label ($id) into config $config ($config_id)."
 lipost $id/boot '{ "config_id": '$config_id' }' > spec/boot.$config.spec
+liwait spec/linode.spec running

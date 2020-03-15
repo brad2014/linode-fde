@@ -1,0 +1,20 @@
+#!/bin/bash
+
+config=$1
+if [ ! -r spec/linode.spec ] ; then
+  echo ERROR: linode instance not yet created
+  exit 1
+fi
+
+. functions.sh
+
+label=$(jq -r .label spec/linode.spec)
+id=$(jq -r .id spec/linode.spec)
+
+read -p "Destroying linode $label ($id). ok? [n/y] " confirm
+if [ "$confirm" != 'y' ]; then
+  echo 'Aborted'
+  exit 1
+fi
+
+lidelete $id | jq && rm spec/*.spec
