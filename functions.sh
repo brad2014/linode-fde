@@ -4,6 +4,11 @@
 # API helpers (since I'm too lazy to install linode-cli)
 #
 
+if ! command -v jq >/dev/null; then
+  echo ERROR: jq is required but not installed.  
+  exit 1
+fi
+
 function liget {
   curl -sS -H "Authorization: Bearer $LI_AUTH_TOKEN" 'https://api.linode.com/v4/linode/instances/'$1
 }
