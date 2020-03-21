@@ -1,12 +1,11 @@
 #!/bin/bash
 
-config=$1
+. functions.sh
+
 if [ ! -r spec/linode.spec ] ; then
   echo ERROR: linode instance not yet created
   exit 1
 fi
-
-. functions.sh
 
 label=$(jq -r .label spec/linode.spec)
 id=$(jq -r .id spec/linode.spec)
@@ -17,4 +16,4 @@ if [ "$confirm" != 'y' ]; then
   exit 1
 fi
 
-lidelete $id | jq && rm spec/*.spec
+lidelete $id | jq && rm spec/*
