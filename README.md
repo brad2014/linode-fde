@@ -67,7 +67,7 @@ The kickstart file ks.cfg does the following:
 
 # Boot the instance into the Run OS config
 
-This runs a linode instance anyone can log into.  If you leave the LISH console logged in after you run init_boot and boot
+This runs a linode instance anyone can log into.  Leave the LISH console logged in after you run init_boot and boot, so you can see what's going on.
 
 ## Boot into install config
 
