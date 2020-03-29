@@ -79,9 +79,12 @@ This will run the kickstart described in the init_boot file.
 
 ### Boot into the OS
 
-Change the various passwords from the kickstart file from "vagrant" to your own secrets:
+Reboot into the "run" config in order to run the newly installed OS.  Make sure you have the console open when you reboot the machine, since you'll have to enter the disk password as it boots.  The password is initially "vagrant".
+
+Then, change the various passwords from the kickstart file from "vagrant" to your own secrets:
 
 ```
 % ./reboot_linode run
+(on the console, enter the disk password)
 % ./fix_passwords
 ```
