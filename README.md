@@ -16,6 +16,29 @@ The TL;DR
 % ./fix_passwords
 ```
 
+# Why would anyone want to do this?
+
+It's a good question. The keys to decrypt the disk are in memory
+on the host in an "unsafe" place (at the cloud company).  However,
+we feel that because it is essentially impossible to erase data
+written to an SSD, that disks should always be encrypted.  To the
+extent that we can sucessfully erase/efface the key from memory (on
+shutdown or destruction), the data is thereafter fairly inaccessible
+to non-targeted attacks.
+
+Of course, the usual caveats apply — know your threat model.
+Obviously: Anyone with access to your machine (presumably, anyone
+inside the colo) can read your disks while the machine is running.
+Anyone with root access can add their own decryption key.  If you
+put a key in a file on the boot partition, to allow unattended boot,
+then anyone with machine access has the key (we still think this
+has a use case, since it protects discarded disks from trawlers).
+
+The main use case seems to be to prevent random scans of the raw
+disk from non-targeted fishing expeditions.
+
+But I could be wrong.  Anyone, it was a fun experiment.
+
 # My environment
 
 I'm on a Macbook, the scripts require curl and jq (from macports or homebrew).
@@ -23,7 +46,7 @@ My Linode token is in my MacOS keychain (so convenient!).
 
 ```
 // add Linode token to MacOS keychain
-% security add-generic-password -a $USER -s LI_AUTH_TOKEN -w
+% security add-generic-password -a $USER -s LI_CLOUD_AUTH_TOKEN -w
 <paste in the Linode cloud api token>
 ```
 
@@ -52,7 +75,7 @@ FIXME: I wish I could do this via scp and ssh from my local machine to the rescu
 ```
 % ssh -t <lishconsole> <nodename>
 # curl -OLk https://raw.githubusercontent.com/brad2014/linode-fde/master/init_boot
-# ./init_boot <nodename>
+# sh ./init_boot <nodename>
 ```
 
 The init_boot script downloads ISOLINUX from a Fedora 31 mirror,
